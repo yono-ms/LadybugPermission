@@ -16,9 +16,20 @@ fun MainScreen(modifier: Modifier = Modifier) {
         startDestination = MyScreen.SPLASH.name,
         modifier = modifier
     ) {
-        composable(MyScreen.SPLASH.name) { SplashScreen() }
-        composable(MyScreen.PERMISSION.name) { PermissionScreen() }
-        composable(MyScreen.HOME.name) { HomeScreen() }
+        composable(MyScreen.SPLASH.name) {
+            SplashScreen(
+                onFinish = {
+                    navController.navigate(MyScreen.HOME.name) {
+                        popUpTo(MyScreen.SPLASH.name) {
+                            inclusive = true
+                        }
+                    }
+                }
+            )
+        }
+        composable(MyScreen.HOME.name) {
+            HomeScreen()
+        }
     }
 }
 
