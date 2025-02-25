@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.ladybugpermission.MainActivity
 import com.example.ladybugpermission.isGrantedFineLocation
+import com.example.ladybugpermission.isRequesting
 import com.example.ladybugpermission.logger
 import com.example.ladybugpermission.ui.theme.LadybugPermissionTheme
 
@@ -27,6 +28,7 @@ import com.example.ladybugpermission.ui.theme.LadybugPermissionTheme
 fun HomeScreen() {
     val context = LocalContext.current
     val granted = isGrantedFineLocation.collectAsState()
+    val requesting = isRequesting.collectAsState()
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -47,12 +49,24 @@ fun HomeScreen() {
             verticalArrangement = Arrangement.Center
         ) {
             Text("ACCESS_FINE_LOCATION : ${granted.value}")
-            Button(onClick = {
-                logger.trace("onClick START update location")
-                val activity = context as MainActivity
-                activity.startUpdateLocation()
-            }) {
+            val activity = context as MainActivity
+            Button(
+                onClick = {
+                    logger.trace("onClick START update location")
+                    activity.startUpdateLocation()
+                },
+                enabled = !requesting.value
+            ) {
                 Text("START update location")
+            }
+            Button(
+                onClick = {
+                    logger.trace("onClick STOP update location")
+                    activity.stopUpdateLocation()
+                },
+                enabled = requesting.value
+            ) {
+                Text("STOP update location")
             }
         }
     }

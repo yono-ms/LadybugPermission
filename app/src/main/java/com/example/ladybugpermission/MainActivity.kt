@@ -3,6 +3,7 @@ package com.example.ladybugpermission
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -15,6 +16,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.core.app.ActivityCompat
 import com.example.ladybugpermission.ui.screen.MainScreen
 import com.example.ladybugpermission.ui.theme.LadybugPermissionTheme
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -23,6 +30,41 @@ class MainActivity : ComponentActivity() {
     private val isShowRationale = MutableStateFlow(false)
     private val isShowDenied = MutableStateFlow(false)
 
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private val locationCallback = object : LocationCallback() {
+        override fun onLocationResult(locationResult: LocationResult) {
+            logger.trace("LocationCallback onLocationResult {}", locationResult)
+            logger.debug("TODO Add location")
+        }
+    }
+
+    private fun startGetLocation() {
+        logger.trace("startGetLocation START")
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            val locationRequest = LocationRequest.Builder(
+                Priority.PRIORITY_HIGH_ACCURACY,
+                10_000
+            ).build()
+            fusedLocationClient.requestLocationUpdates(
+                locationRequest,
+                locationCallback,
+                Looper.getMainLooper()
+            )
+            isRequesting.value = true
+        }
+        logger.trace("startGetLocation END")
+    }
+
+    private fun stopGetLocation() {
+        logger.trace("stopGetLocation START")
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        logger.trace("stopGetLocation END")
+    }
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -30,11 +72,8 @@ class MainActivity : ComponentActivity() {
         // WorkFlow 7 Does the user grant permission to your app?
         permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false).also {
             isGrantedFineLocation.value = it
-            if (it) {
-                logger.debug("TODO GET LOCATION")
-            } else {
-                isShowDenied.value = true
-            }
+            isShowDenied.value = !it
+            startGetLocation()
         }
     }
 
@@ -59,7 +98,7 @@ class MainActivity : ComponentActivity() {
         ) {
             logger.debug("ACCESS_FINE_LOCATION PERMISSION_GRANTED")
             // WorkFlow 8a Access the Info that's protected by the permission
-            logger.debug("TODO Get Location")
+            startGetLocation()
         } else {
             logger.debug("ACCESS_FINE_LOCATION PERMISSION_DENIED")
             // WorkFlow 5a Show a rationale to the user?
@@ -80,10 +119,18 @@ class MainActivity : ComponentActivity() {
         logger.trace("startUpdateLocation END")
     }
 
+    fun stopUpdateLocation() {
+        logger.trace("stopUpdateLocation START")
+        stopGetLocation()
+        isRequesting.value = false
+        logger.trace("stopUpdateLocation END")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         loggerTest()
         logger.info("onCreate savedInstanceState=$savedInstanceState")
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         enableEdgeToEdge()
         setContent {
             LadybugPermissionTheme {
@@ -129,18 +176,24 @@ class MainActivity : ComponentActivity() {
 
     enum class BundleKey {
         RATIONALE,
+        DENIED,
+        REQUESTING,
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
         super.onRestoreInstanceState(savedInstanceState)
         logger.trace("onRestoreInstanceState {}", savedInstanceState)
         isShowRationale.value = savedInstanceState.getBoolean(BundleKey.RATIONALE.name, false)
+        isShowDenied.value = savedInstanceState.getBoolean(BundleKey.DENIED.name, false)
+        isRequesting.value = savedInstanceState.getBoolean(BundleKey.REQUESTING.name, false)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         logger.trace("onSaveInstanceState {}", outState)
         outState.putBoolean(BundleKey.RATIONALE.name, isShowRationale.value)
+        outState.putBoolean(BundleKey.DENIED.name, isShowDenied.value)
+        outState.putBoolean(BundleKey.REQUESTING.name, isRequesting.value)
     }
 
     override fun onStart() {
@@ -155,11 +208,23 @@ class MainActivity : ComponentActivity() {
             this,
             Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
+        if (isGrantedFineLocation.value) {
+            if (isRequesting.value) {
+                logger.trace("restart Update location")
+                startUpdateLocation()
+            }
+        } else {
+            if (isRequesting.value) {
+                logger.trace("teardown Update location")
+                isRequesting.value = false
+            }
+        }
     }
 
     override fun onPause() {
         super.onPause()
         logger.trace("onPause")
+        stopGetLocation()
     }
 
     override fun onStop() {
@@ -182,5 +247,6 @@ class MainActivity : ComponentActivity() {
 }
 
 val isGrantedFineLocation = MutableStateFlow(false)
+val isRequesting = MutableStateFlow(false)
 
 val logger: Logger by lazy { LoggerFactory.getLogger("LadybugP") }
