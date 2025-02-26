@@ -9,7 +9,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.ladybugpermission.ui.theme.LadybugPermissionTheme
 
 @Composable
-fun MainScreen(modifier: Modifier = Modifier) {
+fun MainScreen(modifier: Modifier = Modifier, start: () -> Unit, stop: () -> Unit) {
     val navController = rememberNavController()
     NavHost(
         navController = navController,
@@ -28,7 +28,7 @@ fun MainScreen(modifier: Modifier = Modifier) {
             )
         }
         composable(MyScreen.HOME.name) {
-            HomeScreen()
+            HomeScreen(start = start, stop = stop)
         }
     }
 }
@@ -37,6 +37,6 @@ fun MainScreen(modifier: Modifier = Modifier) {
 @Composable
 fun MainScreenPreview() {
     LadybugPermissionTheme {
-        MainScreen()
+        MainScreen(modifier = Modifier, {}, {})
     }
 }

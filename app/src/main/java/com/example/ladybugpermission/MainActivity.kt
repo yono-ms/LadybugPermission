@@ -14,6 +14,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.collectAsState
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
+import com.example.ladybugpermission.database.LocationEntity
+import com.example.ladybugpermission.database.MyDatabase
 import com.example.ladybugpermission.ui.screen.MainScreen
 import com.example.ladybugpermission.ui.theme.LadybugPermissionTheme
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -23,8 +26,10 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.util.Date
 
 class MainActivity : ComponentActivity() {
     private val isShowRationale = MutableStateFlow(false)
@@ -34,7 +39,23 @@ class MainActivity : ComponentActivity() {
     private val locationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
             logger.trace("LocationCallback onLocationResult {}", locationResult)
-            logger.debug("TODO Add location")
+            lifecycleScope.launch {
+                runCatching {
+                    val dao = MyDatabase.getDatabase(this@MainActivity).locationDao()
+                    for (location in locationResult.locations) {
+                        dao.insertLocation(
+                            LocationEntity(
+                                locationId = 0,
+                                latitude = location.latitude,
+                                longitude = location.longitude,
+                                updateAt = Date().time
+                            )
+                        )
+                    }
+                }.onFailure {
+                    logger.error("LocationDao insert", it)
+                }
+            }
         }
     }
 
@@ -137,7 +158,13 @@ class MainActivity : ComponentActivity() {
                 val rationale = isShowRationale.collectAsState()
                 val denied = isShowDenied.collectAsState()
                 Box {
-                    MainScreen()
+                    MainScreen(
+                        start = {
+                            startUpdateLocation()
+                        }, stop = {
+                            stopUpdateLocation()
+                        }
+                    )
                     if (rationale.value) {
                         AlertDialog(
                             onDismissRequest = {},
