@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
         logger.trace("getLocationPermission END")
     }
 
-    fun startUpdateLocation() {
+    private fun startUpdateLocation() {
         logger.trace("startUpdateLocation START")
         // WorkFlow 4 Permission already granted to your app?
         if (ActivityCompat.checkSelfPermission(
@@ -140,7 +140,7 @@ class MainActivity : ComponentActivity() {
         logger.trace("startUpdateLocation END")
     }
 
-    fun stopUpdateLocation() {
+    private fun stopUpdateLocation() {
         logger.trace("stopUpdateLocation START")
         stopGetLocation()
         isRequesting.value = false
